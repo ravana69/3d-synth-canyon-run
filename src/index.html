@@ -1,0 +1,69 @@
+<script id="vertexShader" type="x-shader/x-vertex">
+  attribute vec3 center;
+  uniform float uTime;
+  varying float vDisp;
+  varying vec3 vCenter;
+  varying vec2 vSceneYZ;
+  
+  #define PULSE_TIME 1.16
+
+  void main() {
+    vCenter = center;
+    vDisp = max(
+      max(0., 1.-pow(3.*abs(uv.y-fract(-uTime*PULSE_TIME)+0.5),0.5)),
+      1.-pow(3.*abs(uv.y-fract(-uTime*PULSE_TIME)-0.5),0.5)
+    );
+    // FIXME - magic numbers in displacement calculation
+    vec4 scenePosition = modelViewMatrix*vec4(position+vec3(0.,1.,0.)*2.5*vDisp,1.);
+    vSceneYZ = scenePosition.yz;
+    gl_Position = projectionMatrix*scenePosition;
+  }
+</script>
+<script id="fragmentShader" type="x-shader/x-fragment">
+  uniform float uResolutionScale;
+  varying float vDisp;
+  varying vec3 vCenter;
+  varying vec2 vSceneYZ;
+
+  #define PI 3.14159265359
+  #define WIREFRAME_WIDTH 2.5
+  
+  // adapted from https://github.com/mrdoob/three.js/blob/dev/examples/webgl_materials_wireframe.html for wireframe effect
+  float edgeFactorTri() {
+    vec3 a3 = smoothstep(vec3(0.), fwidth(vCenter.xyz)*WIREFRAME_WIDTH/uResolutionScale, vCenter.xyz);
+    return min(min(a3.x, a3.y), a3.z);
+  }
+
+  void main( void ) {
+    if (edgeFactorTri() > 0.98) discard;
+    vec3 color = mix(
+      mix(
+        mix(
+          vec3(1.,0.,0.6), // magenta base
+          vec3(1., 0.9, .0), min(1.9,vDisp) // yellow pulse
+        ),
+        vec3(1.), max(0., (vSceneYZ.s-20.) / 120.) // lighter on top; FIXME - magic numbers with Y position
+      ),
+      vec3(0.), max(0., min(1., (-vSceneYZ.t - 80.) / 80.)) // fade to black; FIXME - magic numbers with Z position
+    );
+    gl_FragColor = gl_FrontFacing ?
+      vec4(color, 1.0) :
+      vec4(color, 0.5);
+  }
+</script>
+<div id="container"></div>
+<div id="info">Synth Canyon Run - with <a href="https://threejs.org" target="_blank">three.js</a>
+</div>
+<div id="controls">
+  <label for="resolution">resolution: </label>
+  <select id="resolution" value="2">
+    <option value="0.5">0.5x</option>
+    <option value="1" selected>1x</option>
+    <option value="2">2x</option>
+    <option value="4">4x</option>
+    <option value="8">8x</option>
+  </select>
+  <label for="hide-audio">hide audio: </label>
+  <input id="hide-audio" type="checkbox"></input>
+  <iframe class="audio-embed" width="350" height="83" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/450662742&color=%23a575d0&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>
+</div>
